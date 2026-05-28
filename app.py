@@ -1,0 +1,117 @@
+import sqlite3
+
+class SistemaRRHH:
+    def __init__(self, db_name="erp_seguridad.db"):
+        self.db_name = db_name
+        self.inicializar_base_de_datos()
+
+    def inicializar_base_de_datos(self):
+        """Crea la tabla automáticamente si no existe."""
+        conexion = sqlite3.connect(self.db_name)
+        cursor = conexion.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS personal_seguridad (
+                rut VARCHAR(12) PRIMARY KEY,
+                nombre VARCHAR(50) NOT NULL,
+                apellido VARCHAR(50) NOT NULL,
+                rol VARCHAR(30) NOT NULL,
+                fecha_ingreso TEXT NOT NULL,
+                activo INTEGER DEFAULT 1
+            )
+        """)
+        conexion.commit()
+        conexion.close()
+
+    def registrar_personal(self, rut, nombre, apellido, rol, fecha_ingreso):
+        """Inserta una nueva ficha de personal en el sistema (SL-5)."""
+        try:
+            conexion = sqlite3.connect(self.db_name)
+            cursor = conexion.cursor()
+            cursor.execute("""
+                INSERT INTO personal_seguridad (rut, nombre, apellido, rol, fecha_ingreso)
+                VALUES (?, ?, ?, ?, ?)
+            """, (rut, nombre, apellido, rol, fecha_ingreso))
+            conexion.commit()
+            print(f"¡Éxito! Empleado {nombre} {apellido} registrado correctamente.")
+        except sqlite3.IntegrityError:
+            print(f"Error: El RUT {rut} ya se encuentra registrado.")
+        finally:
+            conexion.close()
+
+ 
+    def listar_personal(self):
+        """SL-7: Consulta y muestra en pantalla a todo el personal de seguridad."""
+        try:
+            conexion = sqlite3.connect(self.db_name)
+            cursor = conexion.cursor()
+            cursor.execute("SELECT rut, nombre, apellido, rol, fecha_ingreso, activo FROM personal_seguridad")
+            empleados = cursor.fetchall()
+
+            print("\==================================================")
+            print("       NÓMINA DE PERSONAL DE SEGURIDAD - ERP      ")
+            print("==================================================")
+            if not empleados:
+                print("No hay personal registrado en el sistema.")
+            for emp in empleados:
+                estado = "Activo" if emp[5] == 1 else "Inactivo"
+                print(f"RUT: {emp[0]} | {emp[1]} {emp[2]} | Rol: {emp[3]} | Ingreso: {emp[4]} | Estado: {estado}")
+            print("==================================================\n")
+        except sqlite3.Error as e:
+            print(f"Error al leer los datos: {e}")
+        finally:
+            conexion.close()
+
+    def actualizar_rol_personal(self, rut, nuevo_rol):
+        """SL-7: Modifica el rol de un trabajador existente mediante su RUT."""
+        try:
+            conexion = sqlite3.connect(self.db_name)
+            cursor = conexion.cursor()
+            cursor.execute("""
+                UPDATE personal_seguridad 
+                SET rol = ? 
+                WHERE rut = ?
+            """, (nuevo_rol, rut))
+            conexion.commit()
+            
+            if cursor.rowcount > 0:
+                print(f"¡Éxito! El rol del RUT {rut} fue actualizado a '{nuevo_rol}'.")
+            else:
+                print(f"Advertencia: No se encontró ningún empleado con el RUT {rut}.")
+        except sqlite3.Error as e:
+            print(f"Error al actualizar el rol: {e}")
+        finally:
+            conexion.close()
+
+
+if __name__ == "__main__":
+    sistema = SistemaRRHH()
+    
+    print("--- Registrando Personal de Seguridad Actividad SL-5 ---")
+    sistema.registrar_personal(
+        rut="12.345.678-9", 
+        nombre="Juan", 
+        apellido="Pérez", 
+        rol="Guardia", 
+        fecha_ingreso="2026-05-28"
+    )
+    
+    # Pruebas para demostrar el cumplimiento de la SL-7 en el laboratorio
+    print("\--- Ejecutando Nuevas Consultas Actividad SL-7 ---")
+    
+    # 1. Registramos a otra persona para tener variedad en la lista
+    sistema.registrar_personal(
+        rut="18.765.432-1", 
+        nombre="María", 
+        apellido="Soto", 
+        rol="Supervisor", 
+        fecha_ingreso="2026-05-28"
+    )
+    
+    # 2. Mostramos la lista completa (Read del CRUD)
+    sistema.listar_personal()
+    
+    # 3. Modificamos el rol de Juan Pérez (Update del CRUD)
+    sistema.actualizar_rol_personal(rut="12.345.678-9", nuevo_rol="Jefe de Turno")
+    
+    # 4. Volvemos a listar para comprobar que el cambio quedó guardado
+    sistema.listar_personal()
