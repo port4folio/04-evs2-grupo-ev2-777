@@ -1,7 +1,7 @@
 import sqlite3
 
 class SistemaRRHH:
-    def __init__(self, db_name="erp_seguridad.db"):
+    def __init__(self, db_name="erp_seguridad.db"):  # <-- CORREGIDO DE VERDAD: __init__
         self.db_name = db_name
         self.inicializar_base_de_datos()
 
@@ -9,6 +9,8 @@ class SistemaRRHH:
         """Crea la tabla automáticamente si no existe."""
         conexion = sqlite3.connect(self.db_name)
         cursor = conexion.cursor()
+        
+        # --- TABLA DE PERSONAL ---
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS personal_seguridad (
                 rut VARCHAR(12) PRIMARY KEY,
@@ -19,6 +21,19 @@ class SistemaRRHH:
                 activo INTEGER DEFAULT 1
             )
         """)
+        
+        # --- TABLA DE CONTRATOS Y SUELDOS ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS contratos_seguridad (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rut_empleado VARCHAR(12) NOT NULL,
+                tipo_contrato VARCHAR(50) NOT NULL,
+                sueldo_base INTEGER NOT NULL,
+                anexos TEXT,
+                FOREIGN KEY (rut_empleado) REFERENCES personal_seguridad(rut)
+            )
+        """)
+        
         conexion.commit()
         conexion.close()
 
@@ -38,7 +53,6 @@ class SistemaRRHH:
         finally:
             conexion.close()
 
- 
     def listar_personal(self):
         """SL-7: Consulta y muestra en pantalla a todo el personal de seguridad."""
         try:
@@ -47,7 +61,7 @@ class SistemaRRHH:
             cursor.execute("SELECT rut, nombre, apellido, rol, fecha_ingreso, activo FROM personal_seguridad")
             empleados = cursor.fetchall()
 
-            print("\==================================================")
+            print("\n==================================================")
             print("       NÓMINA DE PERSONAL DE SEGURIDAD - ERP      ")
             print("==================================================")
             if not empleados:
@@ -67,7 +81,7 @@ class SistemaRRHH:
             conexion = sqlite3.connect(self.db_name)
             cursor = conexion.cursor()
             cursor.execute("""
-                UPDATE personal_seguridad 
+                UPDATE personal_seguridad  
                 SET rol = ? 
                 WHERE rut = ?
             """, (nuevo_rol, rut))
@@ -82,8 +96,45 @@ class SistemaRRHH:
         finally:
             conexion.close()
 
+    def registrar_contrato(self, rut_empleado, tipo_contrato, sueldo_base, anexos):
+        """Asocia un contrato de trabajo y sueldo a un empleado mediante su RUT."""
+        try:
+            conexion = sqlite3.connect(self.db_name)
+            cursor = conexion.cursor()
+            cursor.execute("""
+                INSERT INTO contratos_seguridad (rut_empleado, tipo_contrato, sueldo_base, anexos)
+                VALUES (?, ?, ?, ?)
+            """, (rut_empleado, tipo_contrato, sueldo_base, anexos))
+            conexion.commit()
+            print(f"¡Éxito! Contrato '{tipo_contrato}' asignado al RUT {rut_empleado}.")
+        except sqlite3.Error as e:
+            print(f"Error al registrar el contrato: {e}")
+        finally:
+            conexion.close()
 
-if __name__ == "__main__":
+    def listar_contratos(self):
+        """Consulta y despliega en pantalla la nómina de sueldos y anexos."""
+        try:
+            conexion = sqlite3.connect(self.db_name)
+            cursor = conexion.cursor()
+            cursor.execute("SELECT id, rut_empleado, tipo_contrato, sueldo_base, anexos FROM contratos_seguridad")
+            contratos = cursor.fetchall()
+
+            print("\n==================================================")
+            print("       NÓMINA DE CONTRATOS Y SUELDOS - ERP        ")
+            print("==================================================")
+            if not contratos:
+                print("No hay contratos registrados en el sistema.")
+            for con in contratos:
+                print(f"ID: {con[0]} | Empleado RUT: {con[1]} | Contrato: {con[2]} | Sueldo: ${con[3]:,} | Detalle: {con[4]}")
+            print("==================================================\n")
+        except sqlite3.Error as e:
+            print(f"Error al leer los contratos: {e}")
+        finally:
+            conexion.close()
+
+
+if __name__ == "__main__":  # <-- CORREGIDO DE VERDAD: __name__ y __main__
     sistema = SistemaRRHH()
     
     print("--- Registrando Personal de Seguridad Actividad SL-5 ---")
@@ -95,10 +146,7 @@ if __name__ == "__main__":
         fecha_ingreso="2026-05-28"
     )
     
-    # Pruebas para demostrar el cumplimiento de la SL-7 en el laboratorio
-    print("\--- Ejecutando Nuevas Consultas Actividad SL-7 ---")
-    
-    # 1. Registramos a otra persona para tener variedad en la lista
+    print("--- Ejecutando Nuevas Consultas Actividad SL-7 ---")
     sistema.registrar_personal(
         rut="18.765.432-1", 
         nombre="María", 
@@ -107,11 +155,27 @@ if __name__ == "__main__":
         fecha_ingreso="2026-05-28"
     )
     
-    # 2. Mostramos la lista completa (Read del CRUD)
     sistema.listar_personal()
-    
-    # 3. Modificamos el rol de Juan Pérez (Update del CRUD)
     sistema.actualizar_rol_personal(rut="12.345.678-9", nuevo_rol="Jefe de Turno")
-    
-    # 4. Volvemos a listar para comprobar que el cambio quedó guardado
     sistema.listar_personal()
+
+    print("--- Asociando Contratos de Trabajo Actividad SL-6 ---")
+    
+    # 1. Asociamos un contrato a Juan Pérez usando su RUT
+    sistema.registrar_contrato(
+        rut_empleado="12.345.678-9",
+        tipo_contrato="Indefinido",
+        sueldo_base=650000,
+        anexos="Bono nocturno por turnos y asignación de movilización."
+    )
+    
+    # 2. Asociamos un contrato a María Soto usando su RUT
+    sistema.registrar_contrato(
+        rut_empleado="18.765.432-1",
+        tipo_contrato="Plazo Fijo",
+        sueldo_base=850000,
+        anexos="Seguro complementario de salud activo."
+    )
+    
+    # 3. Mostramos la nómina de contratos y remuneraciones para evidenciar el cumplimiento
+    sistema.listar_contratos()
